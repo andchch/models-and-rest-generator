@@ -7,6 +7,6 @@ def validate_json_schema(filepath: str):
         schema = json.load(scheme_file)
     try:
         jsonschema.Draft7Validator.check_schema(schema)
-        print('No errors were found.')
+        # print('No errors were found.')
     except jsonschema.exceptions.SchemaError as e:
         print(f'Error: \n{e}')

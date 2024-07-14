@@ -1,5 +1,6 @@
 import click
 from schema_validator import validate_json_schema
+from model_generator import generate_pydantic_models
 
 
 @click.group()
@@ -22,7 +23,7 @@ def cli():
 )
 def generate_models(json_schema, out_dir):
     validate_json_schema(json_schema)
-    pass
+    generate_pydantic_models(json_schema, out_dir)
 
 
 @cli.command()
