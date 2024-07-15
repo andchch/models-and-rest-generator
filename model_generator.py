@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from jinja2 import Template
 import time
 
@@ -18,7 +18,7 @@ def load_json_schema(filepath: str) -> Dict:
         return json.load(file)
 
 
-# TODO: handle empty objects, string parameters, arrays of specific types like List[str]
+# TODO: handle optional fields, empty objects, string parameters, arrays of specific types like List[str], relationships
 def parse_object(json_object: Tuple[str, Dict]) -> Dict[str, str]:
     field_name = json_object[0]
     field_type = json_object[1].get('type')
@@ -47,17 +47,61 @@ def parse_object(json_object: Tuple[str, Dict]) -> Dict[str, str]:
     return return_class
 
 
-def parse_schema(schema_path, output_dir='models'):
-    schema = load_json_schema(schema_path)  # noqa
+def parse_relations_field(field: Tuple) -> Dict[str, List[str]]:
+    relations = {}
+    field_name = field[0]
+    field_type = field[1].get('type')
+    if field_type == 'object':
+        for sub_field in field[1]['properties'].keys():
+            if field_name not in relations.keys():
+                relations[field_name] = [sub_field]
+            else:
+                relations[field_name].append(sub_field)
+        relations.update(parse_relations_field(field))
+
+    return relations
+
+
+def parse_relations(schema_path: str) -> Dict[str, List[str]]:
+    schema = load_json_schema(schema_path)
+
+    relations = {}
+    for field in schema['properties'].items():
+        field_type = field[1].get('type')
+        field_name = field[0]
+        if field_type == 'object':
+            for sub_field in field[1]['properties'].keys():
+                if field_name not in relations.keys():
+                    relations[field_name] = [sub_field]
+                else:
+                    relations[field_name].append(sub_field)
+            relations.update(parse_relations_field(field))
+
+    return relations
+
+
+def parse_schema(schema_path: str) -> ...:
+    schema = load_json_schema(schema_path)
+    model_name = f"{schema.get('title')}_{schema['properties']['version']}"
+
     classes = {}
+    relations = {}
+    for field in schema['properties']:
+        if 'Model' not in relations.keys():
+            relations['Model'] = [field]
+        else:
+            relations['Model'].append(field)
 
     for field in schema['properties'].items():
         classes.update(parse_object(field))
-    print(classes)
+
+    relations.update(parse_relations(schema_path))
+
+    return classes, relations, model_name
 
 
-def generate_pydantic_models(schema_path, output_dir='models'):
-    schema = load_json_schema(schema_path)  # noqa
+def generate_pydantic_models(schema_path, output_dir='test_polygon'):
+    model_name = parse_schema(schema_path)[2]
 
     # TODO: Parse configuration
 
@@ -70,9 +114,7 @@ def generate_pydantic_models(schema_path, output_dir='models'):
 
     os.makedirs(output_dir, exist_ok=True)
     # TODO: Provide model_name from json schema (....lower())
-    with open(
-        os.path.join(output_dir, f'model_{....lower()}.py'), 'w'
-    ) as file:
+    with open(os.path.join(output_dir, f'model_{model_name}.py'), 'w') as file:
         file.write(model_code)
 
 
