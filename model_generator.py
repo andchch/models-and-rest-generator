@@ -1,7 +1,5 @@
 import json
-import os
-from typing import Dict, Tuple, List
-from jinja2 import Template
+from typing import Dict, List
 import time
 
 base_types = {
@@ -12,114 +10,117 @@ base_types = {
     'array': 'List[Any]',
 }
 
+keywords = {
+    'string': 'str',
+    'integer': 'int',
+    'number': 'float',
+    'boolean': 'bool',
+    'array': 'List[Any]',
+    'null': 'None',
+    'maxLength': 'max_length',
+    'minLength': 'min_length',
+    'pattern': 'regex',
+}
+
+options_keywords = ['max_length', 'min_length', 'regex']
+
 
 def load_json_schema(filepath: str) -> Dict:
     with open(filepath, 'r') as file:
         return json.load(file)
 
 
-# TODO: handle optional fields, empty objects, string parameters, arrays of specific types like List[str], relationships
-def parse_object(json_object: Tuple[str, Dict]) -> Dict[str, str]:
-    field_name = json_object[0]
-    field_type = json_object[1].get('type')
+# TODO: handle optional fields, empty objects arrays of specific types like List[str]
+def parse_schema(schema, parent=None):
+    result = {}
+    if 'type' in schema and 'properties' in schema:
+        for key, value in schema['properties'].items():
+            field_info = {
+                'type': value.get('type', 'unknown'),  # unknown to Any
+                'requirements': value.get('required', []),
+                'parent': parent,
+            }
 
-    return_class = {}
-    if field_type == 'object':
-        parent = {field_name: field_name.capitalize()}
-        return_class.update(parent)
-        child = {}
-        for object_property in json_object[1]['properties'].items():
-            if object_property[1].get('type') == 'object':
-                child.update(parse_object(object_property))
-            else:
-                child.update(
-                    {
-                        object_property[0]: base_types.get(
-                            object_property[1].get('type')
-                        )
-                    }
-                )
-        return_class.update(child)
+            for keyword, val in keywords.items():
+                if keyword in value:
+                    field_info[val] = value[keyword]
 
-    elif field_type in base_types:
-        return {json_object[0]: base_types.get(field_type)}
+            result[key] = field_info
 
-    return return_class
-
-
-def parse_relations_field(field: Tuple) -> Dict[str, List[str]]:
-    relations = {}
-    field_name = field[0]
-    field_type = field[1].get('type')
-    if field_type == 'object':
-        for sub_field in field[1]['properties'].keys():
-            if field_name not in relations.keys():
-                relations[field_name] = [sub_field]
-            else:
-                relations[field_name].append(sub_field)
-        relations.update(parse_relations_field(field))
-
-    return relations
+            if value.get('type') == 'object' and 'properties' in value:
+                result.update(parse_schema(value, parent=key))
+            elif (
+                value.get('type') == 'array'
+                and 'items' in value
+                and 'properties' in value['items']
+            ):
+                result.update(parse_schema(value['items'], parent=key))
+    return result
 
 
-def parse_relations(schema_path: str) -> Dict[str, List[str]]:
-    schema = load_json_schema(schema_path)
+def get_field_code(name: str, properties: Dict) -> str:
+    if properties['type'] == 'object':
+        field_code = f'{name}: {name}'
+        return field_code
 
-    relations = {}
-    for field in schema['properties'].items():
-        field_type = field[1].get('type')
-        field_name = field[0]
-        if field_type == 'object':
-            for sub_field in field[1]['properties'].keys():
-                if field_name not in relations.keys():
-                    relations[field_name] = [sub_field]
+    options = ''
+    for key, value in properties.items():
+        if not value:
+            continue
+        if key in options_keywords:
+            if key == 'regex':
+                if options == '':
+                    options += f'{key}=r"{value}"'
                 else:
-                    relations[field_name].append(sub_field)
-            relations.update(parse_relations_field(field))
+                    options += f', {key}=r"{value}"'
+            else:
+                if options == '':
+                    options += f'{key}={value}'
+                else:
+                    options += f', {key}={value}'
 
-    return relations
+    field_type = base_types[properties['type']]
+    field_code = f'{name}: Annotated[{field_type}, Field({options})]'
+    return field_code
 
 
-def parse_schema(schema_path: str) -> ...:
-    schema = load_json_schema(schema_path)
-    model_name = f"{schema.get('title')}_{schema['properties']['version']}"
-
-    classes = {}
-    relations = {}
-    for field in schema['properties']:
-        if 'Model' not in relations.keys():
-            relations['Model'] = [field]
+def generate_pydantic_models(parsed_data, kind='root'):
+    models: Dict[str, List[str]] = {}
+    for key, value in parsed_data.items():
+        parent = value.get('parent')
+        if parent is None:
+            if kind in models.keys():
+                models[kind].append(get_field_code(key, value))
+            else:
+                models[kind] = [get_field_code(key, value)]
         else:
-            relations['Model'].append(field)
+            if parent in models.keys():
+                models[parent].append(get_field_code(key, value))
+            else:
+                models[parent] = [get_field_code(key, value)]
 
-    for field in schema['properties'].items():
-        classes.update(parse_object(field))
-
-    relations.update(parse_relations(schema_path))
-
-    return classes, relations, model_name
-
-
-def generate_pydantic_models(schema_path, output_dir='test_polygon'):
-    model_name = parse_schema(schema_path)[2]
+    return models
 
     # TODO: Parse configuration
 
     # -----------------------------------------------------------
 
-    template = Template('templates/pydantic_class.jinja2')
-    model_code = template.render(...)  # TODO: provide argument(s)
+    """template = Template('templates/pydantic_class.jinja2')
+    model_code = template.render(...)  # TODO: provide argument(s)"""
 
     # ------------------------------------------------------------
 
-    os.makedirs(output_dir, exist_ok=True)
+    """os.makedirs(output_dir, exist_ok=True)
     # TODO: Provide model_name from json schema (....lower())
     with open(os.path.join(output_dir, f'model_{model_name}.py'), 'w') as file:
-        file.write(model_code)
+        file.write(model_code)"""
 
 
 if __name__ == '__main__':
     start = time.perf_counter()
-    parse_schema('test_polygon/test_schema1.json')
+    schema = load_json_schema('test_polygon/test_schema.json')
+    s = parse_schema(schema)
+    s1 = generate_pydantic_models(s)
     finish = time.perf_counter()
     print('Время работы: ' + str(finish - start))
+    # print(json.dumps(s, indent=2))
