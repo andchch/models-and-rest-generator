@@ -1,19 +1,8 @@
-from typing import Annotated, Any, Dict
+from typing import Annotated, Dict, List, Any
 from pydantic import BaseModel, Field
 
-#TODO: mb generate
-SEMVER_REGEX = '^v?(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
+{% for class_name, fields in models.items() %}
+class {{ class_name }}(BaseModel):{% for field_code in fields %}
+    {{ field_code }}{% endfor %}
 
-#TODO: Finish template
-
-class Configuration(BaseModel):
-    specification: Specification
-    settings: Settings
-
-
-class Model(BaseModel):
-    kind: Annotated[str, Field(..., max_length=32)]
-    version: Annotated[str, Field(..., regex=SEMVER_REGEX)]
-    name: Annotated[str, Field(..., max_length=128)]
-    description: Annotated[str, Field(default_factory=str, max_length=4096)]
-    configuration: Configuration
+{% endfor %}

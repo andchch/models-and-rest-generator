@@ -1,6 +1,8 @@
 import json
-from typing import Dict, List
+from typing import Dict
 import time
+from jinja2 import FileSystemLoader, Environment
+
 
 base_types = {
     'string': 'str',
@@ -8,6 +10,7 @@ base_types = {
     'number': 'float',
     'boolean': 'bool',
     'array': 'List[Any]',
+    'dict': 'Dict[Any]',
 }
 
 keywords = {
@@ -30,37 +33,48 @@ def load_json_schema(filepath: str) -> Dict:
         return json.load(file)
 
 
-# TODO: handle optional fields, empty objects arrays of specific types like List[str]
-def parse_schema(schema, parent=None):
+def parse_schema(schema: Dict, parent=None, path='') -> Dict[str, Dict]:
     result = {}
     if 'type' in schema and 'properties' in schema:
+        required_fields = schema.get('required', [])
+
         for key, value in schema['properties'].items():
+            current_path = f'{path}.{key}' if path else key
             field_info = {
-                'type': value.get('type', 'unknown'),  # unknown to Any
-                'requirements': value.get('required', []),
+                'type': value.get('type'),
+                'required': key in required_fields,
                 'parent': parent,
+                'path': current_path,
             }
 
             for keyword, val in keywords.items():
                 if keyword in value:
                     field_info[val] = value[keyword]
 
-            result[key] = field_info
+            result[current_path] = field_info
 
-            if value.get('type') == 'object' and 'properties' in value:
-                result.update(parse_schema(value, parent=key))
+            if (
+                value.get('type') == 'object'
+                and 'properties' in value
+                and value['properties'] is not None
+            ):
+                result.update(
+                    parse_schema(value, parent=key, path=current_path)
+                )
             elif (
                 value.get('type') == 'array'
                 and 'items' in value
                 and 'properties' in value['items']
             ):
-                result.update(parse_schema(value['items'], parent=key))
+                result.update(
+                    parse_schema(value['items'], parent=key, path=current_path)
+                )
     return result
 
 
-def get_field_code(name: str, properties: Dict) -> str:
+def generate_field_code(name: str, properties: Dict) -> str:
     if properties['type'] == 'object':
-        field_code = f'{name}: {name}'
+        field_code = f'{name}: {name.capitalize()}'
         return field_code
 
     options = ''
@@ -84,43 +98,60 @@ def get_field_code(name: str, properties: Dict) -> str:
     return field_code
 
 
-def generate_pydantic_models(parsed_data, kind='root'):
-    models: Dict[str, List[str]] = {}
-    for key, value in parsed_data.items():
-        parent = value.get('parent')
-        if parent is None:
-            if kind in models.keys():
-                models[kind].append(get_field_code(key, value))
-            else:
-                models[kind] = [get_field_code(key, value)]
-        else:
-            if parent in models.keys():
-                models[parent].append(get_field_code(key, value))
-            else:
-                models[parent] = [get_field_code(key, value)]
+def get_depth(parsed_data):
+    levels = {}
+    for name in parsed_data.keys():
+        heirarchy = name.split('.')
+        for single_name in heirarchy:
+            levels[single_name.capitalize()] = heirarchy.index(single_name)
+    return levels
 
-    return models
 
-    # TODO: Parse configuration
-
-    # -----------------------------------------------------------
-
-    """template = Template('templates/pydantic_class.jinja2')
-    model_code = template.render(...)  # TODO: provide argument(s)"""
-
-    # ------------------------------------------------------------
-
-    """os.makedirs(output_dir, exist_ok=True)
-    # TODO: Provide model_name from json schema (....lower())
-    with open(os.path.join(output_dir, f'model_{model_name}.py'), 'w') as file:
-        file.write(model_code)"""
+def sort_models_by_dependencies(models: Dict, properties: Dict) -> Dict:
+    combined_items = [
+        (key, models[key], properties.get(key, float('-inf')))
+        for key in models
+    ]
+    sorted_items = sorted(
+        combined_items, key=lambda item: item[2], reverse=True
+    )
+    sorted_models = {key: value for key, value, _ in sorted_items}
+    return sorted_models
 
 
 if __name__ == '__main__':
     start = time.perf_counter()
     schema = load_json_schema('test_polygon/test_schema.json')
     s = parse_schema(schema)
-    s1 = generate_pydantic_models(s)
+
+    models = {}
+    for path, info in s.items():
+        parts = path.split('.')
+        if len(parts) == 1:
+            class_name = s.get('Kind', 'Root')
+            field_name = parts[0]
+        else:
+            class_name = (
+                parts[-2].capitalize()
+                if len(parts) > 1
+                else parts[0].capitalize()
+            )
+            field_name = parts[-1]
+
+        if class_name not in models:
+            models[class_name] = []
+        models[class_name].append(generate_field_code(field_name, info))
+
+    a = sort_models_by_dependencies(models, get_depth(s))
+
+    templateLoader = FileSystemLoader(searchpath='./templates')
+    templateEnv = Environment(loader=templateLoader)
+    template_file = 'pydantic_class.jinja2'
+    template = templateEnv.get_template(template_file)
+    code = template.render(models=a)
+
+    with open('models/model.py', 'w') as file:
+        file.write(code)
+
     finish = time.perf_counter()
     print('Время работы: ' + str(finish - start))
-    # print(json.dumps(s, indent=2))
