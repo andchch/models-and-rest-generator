@@ -160,9 +160,12 @@ def sort_models_by_dependencies(parsed_data, properties: Dict) -> Dict:
 
 
 def generate_pydantic_models(
-    json_schema: str, out_dir: str = 'models'
+    json_schema: str, out_dir: str = 'models', model_name: str = 'Root'
 ) -> None:
     schema = load_json_schema(json_schema)
+    kind = (
+        schema.get('properties', {}).get('kind', {}).get('default', model_name)
+    )
     parsed_data = parse_schema(schema)
     models = sort_models_by_dependencies(parsed_data, get_depth(parsed_data))
 
@@ -172,7 +175,7 @@ def generate_pydantic_models(
     template = template_env.get_template(template_file)
     code = template.render(models=models)
 
-    with open(os.path.join(out_dir, 'model.py'), 'w') as out_file:
+    with open(os.path.join(out_dir, f'{kind}_model.py'), 'w') as out_file:
         out_file.write(code)
 
 
