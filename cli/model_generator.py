@@ -10,7 +10,7 @@ base_types = {
     'number': 'float',
     'boolean': 'bool',
     'array': 'List[Any]',
-    'dict': 'Dict[Any]',
+    'dict': 'Dict[Any, Any]',
     'array.string': 'List[str]',
     'array.integer': 'List[int]',
     'array.number': 'List[float]',
@@ -160,7 +160,7 @@ def sort_models_by_dependencies(parsed_data, properties: Dict) -> Dict:
 
 
 def generate_pydantic_models(
-    json_schema: str, out_dir: str = 'models', model_name: str = 'Root'
+    json_schema: str, out_dir: str = 'api/models', model_name: str = 'Root'
 ) -> None:
     schema = load_json_schema(json_schema)
     kind = (
@@ -169,15 +169,13 @@ def generate_pydantic_models(
     parsed_data = parse_schema(schema)
     models = sort_models_by_dependencies(parsed_data, get_depth(parsed_data))
 
-    template_loader = FileSystemLoader(searchpath='./templates')
+    template_loader = FileSystemLoader(searchpath='cli/templates')
     template_env = Environment(loader=template_loader)
     template_file = 'pydantic_class.jinja2'
     template = template_env.get_template(template_file)
     code = template.render(models=models)
 
-    with open(os.path.join(out_dir, f'{kind}_model.py'), 'w') as out_file:
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, f'{kind}.py'), 'w') as out_file:  # TODO: Save on upper level
         out_file.write(code)
 
-
-if __name__ == '__main__':
-    generate_pydantic_models('test_polygon/test_schema1.json')

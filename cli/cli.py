@@ -1,6 +1,8 @@
 import click
-from schema_validator import validate_json_schema
+
+from controller_generator import generate_rest_controllers
 from model_generator import generate_pydantic_models
+from schema_validator import validate_json_schema
 
 
 @click.group()
@@ -21,7 +23,7 @@ def cli():
     type=click.Path(),
     help='Output directory for generated models.',
 )
-def generate_models(json_schema, out_dir):
+def gen_models(json_schema, out_dir):
     validate_json_schema(json_schema)
     generate_pydantic_models(json_schema, out_dir)
 
@@ -39,8 +41,8 @@ def generate_models(json_schema, out_dir):
     type=click.Path(),
     help='Output directory for generated REST controllers.',
 )
-def generate_rest_routes(models_dir, out_dir):
-    pass
+def gen_controllers(models_dir, out_dir):
+    generate_rest_controllers(models_dir, out_dir)
 
 
 if __name__ == '__main__':
