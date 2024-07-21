@@ -19,7 +19,14 @@ class Status(enum.Enum):
 class App(Model):
     __tablename__ = 'apps'
 
-    UUID = Column(UUID(as_uuid=True), index=True, primary_key=True, unique=True, nullable=False, default=uuid.uuid4)
+    UUID = Column(
+        UUID(as_uuid=True),
+        index=True,
+        primary_key=True,
+        unique=True,
+        nullable=False,
+        default=uuid.uuid4,
+    )
     kind = Column(String, nullable=False)
     name = Column(String, nullable=False)
     version = Column(String, nullable=False)

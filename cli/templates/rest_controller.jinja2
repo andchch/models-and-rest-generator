@@ -47,7 +47,7 @@ async def create_document(document: {{ kind }}, session: Session = Depends(get_a
 @router.put('/{uuid}/specification/')
 async def update_specification(uuid: UUID, specification: Dict[str, Any],
                                session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     response = await session.execute(request)
     document = response.scalars().first()
     if document is None:
@@ -57,7 +57,7 @@ async def update_specification(uuid: UUID, specification: Dict[str, Any],
         new_json = old_json.copy()
         new_json['configuration']['specification'] = specification
 
-        request = update(App).where(App.kind == '{{ kind }}', App.UUID == uuid).values(json=new_json)
+        request = update(App).where(App.UUID == uuid).values(json=new_json)
         await session.execute(request)
         await session.commit()
 
@@ -69,7 +69,7 @@ async def update_specification(uuid: UUID, specification: Dict[str, Any],
 @router.put('/{uuid}/settings/')
 async def update_settings(uuid: UUID, settings: Dict[str, Any],
                           session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     response = await session.execute(request)
     document = response.scalars().first()
     if document is None:
@@ -78,7 +78,7 @@ async def update_settings(uuid: UUID, settings: Dict[str, Any],
         old_json = document.json
         new_json = old_json.copy()
         new_json['configuration']['settings'] = settings
-        request = update(App).where(App.kind == '{{ kind }}', App.UUID == uuid).values(json=new_json)
+        request = update(App).where(App.UUID == uuid).values(json=new_json)
 
         await session.execute(request)
         await session.commit()
@@ -90,7 +90,7 @@ async def update_settings(uuid: UUID, settings: Dict[str, Any],
 
 @router.put('/{uuid}/state/')
 async def update_state(uuid: UUID, new_state: Status, session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
     if document is None:
@@ -106,7 +106,7 @@ async def update_state(uuid: UUID, new_state: Status, session: Session = Depends
 
 @router.delete('/{uuid}/')
 async def delete_document(uuid: UUID, session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
     if document is None:
@@ -122,23 +122,21 @@ async def delete_document(uuid: UUID, session: Session = Depends(get_async_sessi
 
 @router.get('/{uuid}/')
 async def get_document(uuid: UUID, session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
     if document is None:
         raise HTTPException(status_code=404, detail='Document not found')
     else:
-        send_kafka_message('{{ kind }}', 'Document was recieved', document.json)
         return {'status': 'success', 'document': document.json}
 
 
 @router.get('/{uuid}/state/')
 async def get_state(uuid: UUID, session: Session = Depends(get_async_session)):
-    request = select(App).where(App.kind == '{{ kind }}', App.UUID == uuid)
+    request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
     if document is None:
         raise HTTPException(status_code=404, detail='Document not found')
     else:
-        send_kafka_message('{{ kind }}', 'State was recieved', document.json)
         return {'status': 'success', 'state': document.state}
