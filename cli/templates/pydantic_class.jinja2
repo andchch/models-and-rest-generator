@@ -1,0 +1,8 @@
+from typing import Annotated, Dict, List, Any
+from pydantic import BaseModel, Field
+
+{% for class_name, fields in models.items() %}
+class {{ class_name }}(BaseModel):{% for field_code in fields %}
+    {{ field_code }}{% endfor %}
+
+{% endfor %}
