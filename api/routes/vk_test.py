@@ -11,14 +11,13 @@ from api.database_models import App, Status
 from api.models.vk_test import *
 from api.kafka_integration import send_kafka_message
 
-router = APIRouter(
-    prefix='/vk_test',
-    tags=['vk_test']
-)
+router = APIRouter(prefix='/vk_test', tags=['vk_test'])
 
 
 @router.post('')
-async def create_document(document: vk_test, session: Session = Depends(get_async_session)):
+async def create_document(
+    document: vk_test, session: Session = Depends(get_async_session)
+):
     if document.kind != 'vk_test':
         raise HTTPException(status_code=400, detail='Kind mismatch')
     json = document.dict()
@@ -39,14 +38,19 @@ async def create_document(document: vk_test, session: Session = Depends(get_asyn
 
     except SQLAlchemyError as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail='Database error: ' + str(e))
+        raise HTTPException(
+            status_code=500, detail='Database error: ' + str(e)
+        )
 
     return {'status': 'success'}
 
 
 @router.put('/{uuid}/specification/')
-async def update_specification(uuid: UUID, specification: Dict[str, Any],
-                               session: Session = Depends(get_async_session)):
+async def update_specification(
+    uuid: UUID,
+    specification: Dict[str, Any],
+    session: Session = Depends(get_async_session),
+):
     request = select(App).where(App.UUID == uuid)
     response = await session.execute(request)
     document = response.scalars().first()
@@ -67,8 +71,11 @@ async def update_specification(uuid: UUID, specification: Dict[str, Any],
 
 
 @router.put('/{uuid}/settings/')
-async def update_settings(uuid: UUID, settings: Dict[str, Any],
-                          session: Session = Depends(get_async_session)):
+async def update_settings(
+    uuid: UUID,
+    settings: Dict[str, Any],
+    session: Session = Depends(get_async_session),
+):
     request = select(App).where(App.UUID == uuid)
     response = await session.execute(request)
     document = response.scalars().first()
@@ -89,7 +96,11 @@ async def update_settings(uuid: UUID, settings: Dict[str, Any],
 
 
 @router.put('/{uuid}/state/')
-async def update_state(uuid: UUID, new_state: Status, session: Session = Depends(get_async_session)):
+async def update_state(
+    uuid: UUID,
+    new_state: Status,
+    session: Session = Depends(get_async_session),
+):
     request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
@@ -105,7 +116,9 @@ async def update_state(uuid: UUID, new_state: Status, session: Session = Depends
 
 
 @router.delete('/{uuid}/')
-async def delete_document(uuid: UUID, session: Session = Depends(get_async_session)):
+async def delete_document(
+    uuid: UUID, session: Session = Depends(get_async_session)
+):
     request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()
@@ -121,7 +134,9 @@ async def delete_document(uuid: UUID, session: Session = Depends(get_async_sessi
 
 
 @router.get('/{uuid}/')
-async def get_document(uuid: UUID, session: Session = Depends(get_async_session)):
+async def get_document(
+    uuid: UUID, session: Session = Depends(get_async_session)
+):
     request = select(App).where(App.UUID == uuid)
     result = await session.execute(request)
     document = result.scalars().first()

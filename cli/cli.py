@@ -11,18 +11,22 @@ def cli():
 
 
 @cli.command(help='Generate Pydantic models from JSON Schema.')
-@click.option('-js', '--json-schema',
-              required=True,
-              type=click.Path(exists=True),
-              help='Path to JSON Schema for generating pydantic models'
-              )
-@click.option('-o', '--out-dir',
-              required=False,
-              type=click.Path(),
-              help='Output directory for generated models.',
-              default='api/models',
-              show_default=True
-              )
+@click.option(
+    '-js',
+    '--json-schema',
+    required=True,
+    type=click.Path(exists=True),
+    help='Path to JSON Schema for generating pydantic models',
+)
+@click.option(
+    '-o',
+    '--out-dir',
+    required=False,
+    type=click.Path(),
+    help='Output directory for generated models.',
+    default='api/models',
+    show_default=True,
+)
 def gen_models(json_schema, out_dir):
     try:
         validate_json_schema(json_schema)
@@ -39,7 +43,7 @@ def gen_models(json_schema, out_dir):
     type=click.Path(exists=True),
     help='Directory with Pydantic models.',
     default='api/models',
-    show_default=True
+    show_default=True,
 )
 def gen_controllers(models_dir):
     generate_rest_controllers(models_dir)

@@ -135,7 +135,9 @@ def sort_models_by_dependencies(parsed_data, properties: Dict) -> Dict:
     for path, info in parsed_data.items():
         parts = path.split('.')
         if len(parts) == 1:
-            class_name = parsed_data.get('Kind', parsed_data['kind'].get('default'))
+            class_name = parsed_data.get(
+                'Kind', parsed_data['kind'].get('default')
+            )
             field_name = parts[0]
         else:
             class_name = (
@@ -161,11 +163,10 @@ def sort_models_by_dependencies(parsed_data, properties: Dict) -> Dict:
 
 
 def generate_pydantic_models(
-    json_schema: str, out_dir: str = 'api/models') -> None:
+    json_schema: str, out_dir: str = 'api/models'
+) -> None:
     schema = load_json_schema(json_schema)
-    kind = (
-        schema.get('properties', {}).get('kind', {}).get('default', 'Root')
-    )
+    kind = schema.get('properties', {}).get('kind', {}).get('default', 'Root')
     parsed_data = parse_schema(schema)
     models = sort_models_by_dependencies(parsed_data, get_depth(parsed_data))
 
@@ -176,9 +177,7 @@ def generate_pydantic_models(
     code = template.render(models=models)
 
     os.makedirs(out_dir, exist_ok=True)
-    with open(
-        os.path.join(out_dir, f'{kind}.py'), 'w'
-    ) as out_file:
+    with open(os.path.join(out_dir, f'{kind}.py'), 'w') as out_file:
         out_file.write(code)
 
 

@@ -9,7 +9,10 @@ from sqlalchemy.ext.asyncio import (
 
 load_dotenv()
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+asyncpg://postgres:example@localhost:5432/postgres')
+DATABASE_URL = os.getenv(
+    'DATABASE_URL',
+    'postgresql+asyncpg://postgres:example@localhost:5432/postgres',
+)
 
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
